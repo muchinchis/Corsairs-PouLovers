@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Corsairs - Dame pou coin</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #cfd8dc;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #game-wrapper {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100%;
+        }
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-height: 75vh;
+            aspect-ratio: 1 / 1;
+            background-color: #e1f5fe;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            transform: translateZ(0); 
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 20px 25px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+            font-weight: 800;
+            color: #263238;
+            font-size: clamp(20px, 5vw, 28px);
+            pointer-events: none;
+            z-index: 10;
+        }
+        #score-display {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        #score-icon {
+            width: clamp(20px, 5vw, 30px);
+            height: clamp(20px, 5vw, 30px);
+        }
+        #leaderboard {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(225, 245, 254, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+        }
+        .leaderboard-box {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 25px;
+            width: 80%;
+            max-width: 350px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            text-align: center;
+        }
+        .leaderboard-box h2 {
+            margin: 0 0 20px 0;
+            color: #d4af37;
+            font-size: 28px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .top-list {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 20px 0;
+            text-align: left;
+        }
+        .top-list li {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 2px dashed #eceff1;
+            font-size: 18px;
+            font-weight: 700;
+            color: #455a64;
+        }
+        .top-list li span:last-child {
+            color: #d4af37;
+            font-weight: 900;
+        }
+        #control-area {
+            width: 100%;
+            flex-grow: 1;
+            background-color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-bottom-left-radius: 16px;
+            border-bottom-right-radius: 16px;
+        }
+        #main-btn {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #main-btn:active {
+            transform: scale(0.92);
+        }
+        .btn-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        #btn-icon {
+            position: absolute;
+            width: 45%;
+            height: 45%;
+            z-index: 2;
+            pointer-events: none;
+        }
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 20px;
+            color: #455a64;
+            font-weight: bold;
+            z-index: 30;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-wrapper">
+    <div id="game-container">
+        <div id="loading">Conectando al polnito lico de pou sigma beeg...</div>
+        
+        <div id="ui-layer" style="display: none;">
+            <div id="level-display">Nivel 1</div>
+            <div id="score-display">
+                <span id="score-val">0</span>
+                <img src="https://tbot.xyz/corsairs/images/coin.svg" id="score-icon" alt="coins">
+            </div>
+        </div>
+
+        <div id="leaderboard" style="display: none;">
+            <div class="leaderboard-box">
+                <h2 id="top-title">Top Global</h2>
+                <ul id="top-list-container" class="top-list"></ul>
+                <p style="color: #78909c; font-size: 14px; margin:0; font-weight: normal;">¿Podrás superar el nivel Satanás?</p>
+            </div>
+        </div>
+
+        <canvas id="gameCanvas" width="800" height="800" style="display: none;"></canvas>
+    </div>
+    
+    <div id="control-area">
+        <div id="main-btn">
+            <img src="https://tbot.xyz/corsairs/images/btn.svg" class="btn-layer" alt="Boton base">
+            <img src="https://tbot.xyz/corsairs/images/btnplay.svg" id="btn-icon" alt="Icono">
+        </div>
+    </div>
+</div>
+
+<script>
+    const leaderboardData = [
+        { name: "1. Olimpia", score: 99999 },
+        { name: "2. Benteveo", score: 85000 },
+        { name: "3. Sindulfo", score: 72000 },
+        { name: "4. Marcelina", score: 68000 },
+        { name: "5. Pou Sigma", score: 50000 }
+    ];
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const btn = document.getElementById('main-btn');
+    const btnIcon = document.getElementById('btn-icon');
+    const levelDisplay = document.getElementById('level-display');
+    const scoreVal = document.getElementById('score-val');
+    const loadingScreen = document.getElementById('loading');
+    const uiLayer = document.getElementById('ui-layer');
+    const leaderboard = document.getElementById('leaderboard');
+    const topListContainer = document.getElementById('top-list-container');
+
+    const imageUrls = {
+        island: 'https://tbot.xyz/corsairs/images/island.svg',
+        tower: 'https://tbot.xyz/corsairs/images/tower.svg',
+        ship: 'https://tbot.xyz/corsairs/images/ship.svg',
+        coin: 'https://tbot.xyz/corsairs/images/coin.svg',
+        bullet: 'https://tbot.xyz/corsairs/images/bullet.svg',
+        btnplay: 'https://tbot.xyz/corsairs/images/btnplay.svg',
+        btnswitch: 'https://tbot.xyz/corsairs/images/btnswitch.svg',
+        btnrestart: 'https://tbot.xyz/corsairs/images/btnrestart.svg'
+    };
+
+    const soundCoin = new Audio('https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3'); 
+    soundCoin.volume = 0.4;
+
+    const rawImages = {};
+    const rasterized = {}; 
+    let loadedImages = 0;
+    const totalImages = Object.keys(imageUrls).length;
+
+    const CX = 400;
+    const CY = 400;
+    const ORBIT_RADIUS = 280; 
+    const TOTAL_COINS = 28;
+
+    const SHIP_SIZE = 72;
+    const COIN_SIZE = 40;
+    const BULLET_SIZE = 36;
+    const ISLAND_SIZE = 240;
+    const TOWER_SIZE = 90;
+
+    let state = 'MENU'; 
+    let level = 1;
+    let score = 0;
+    
+    let player = { angle: Math.PI / 2, dir: 1, speed: 0.025, radius: 24 }; 
+    let coins = [];
+    let bombs = [];
+    let bombPool = [];
+
+    let lastTime = 0;
+    let bombTimer = 0;
+    let bombInterval = 800;
+    let gameOverTimeout = null;
+
+    function renderLeaderboard() {
+        topListContainer.innerHTML = '';
+        leaderboardData.forEach(item => {
+            const li = document.createElement('li');
+            li.innerHTML = `<span>${item.name}</span> <span>${item.score}</span>`;
+            topListContainer.appendChild(li);
+        });
+    }
+
+    function rasterize(image, w, h, isCircular = false) {
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = w;
+        tempCanvas.height = h;
+        const tempCtx = tempCanvas.getContext('2d');
+        if (isCircular) {
+            tempCtx.beginPath();
+            tempCtx.arc(w/2, h/2, w/2, 0, Math.PI * 2);
+            tempCtx.clip();
+        }
+        tempCtx.drawImage(image, 0, 0, w, h);
+        return tempCanvas;
+    }
+
+    const bgCanvas = document.createElement('canvas');
+    bgCanvas.width = 800;
+    bgCanvas.height = 800;
+    const bgCtx = bgCanvas.getContext('2d');
+
+    function preRenderBackground() {
+        bgCtx.fillStyle = '#e1f5fe';
+        bgCtx.fillRect(0, 0, 800, 800);
+        bgCtx.beginPath();
+        bgCtx.arc(CX, CY, ORBIT_RADIUS, 0, Math.PI * 2);
+        bgCtx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+        bgCtx.lineWidth = 4;
+        bgCtx.stroke();
+        bgCtx.drawImage(rasterized.island, CX - ISLAND_SIZE/2, CY - ISLAND_SIZE/2);
+        bgCtx.drawImage(rasterized.tower, CX - TOWER_SIZE/2, CY - TOWER_SIZE/2);
+    }
+
+    function preload() {
+        for (let key in imageUrls) {
+            rawImages[key] = new Image();
+            rawImages[key].crossOrigin = "anonymous";
+            rawImages[key].onload = () => {
+                loadedImages++;
+                if (loadedImages === totalImages) {
+                    rasterized.ship = rasterize(rawImages.ship, SHIP_SIZE, SHIP_SIZE);
+                    rasterized.coin = rasterize(rawImages.coin, COIN_SIZE, COIN_SIZE);
+                    rasterized.bullet = rasterize(rawImages.bullet, BULLET_SIZE, BULLET_SIZE, true);
+                    rasterized.island = rasterize(rawImages.island, ISLAND_SIZE, ISLAND_SIZE);
+                    rasterized.tower = rasterize(rawImages.tower, TOWER_SIZE, TOWER_SIZE);
+                    preRenderBackground();
+                    startGameLoop();
+                }
+            };
+            rawImages[key].src = imageUrls[key];
+        }
+    }
+
+    function initLevel() {
+        player.angle = Math.PI / 2;
+        bombs.forEach(b => bombPool.push(b));
+        bombs = [];
+        coins = [];
+        let angleStep = (Math.PI * 2) / TOTAL_COINS;
+        for (let i = 0; i < TOTAL_COINS; i++) {
+            coins.push({ angle: i * angleStep, active: true });
+        }
+        
+        if(level > 6) {
+            bombInterval = Math.max(80, 200 - (level - 6) * 20);
+        } else {
+            bombInterval = Math.max(180, 850 - (level - 1) * 110);
+        }
+        
+        updateUI();
+    }
+
+    function getBomb(x, y, vx, vy, speed) {
+        let b;
+        if (bombPool.length > 0) {
+            b = bombPool.pop();
+            b.x = x; b.y = y; b.vx = vx; b.vy = vy; b.speed = speed;
+            b.life = 6000;
+        } else {
+            b = { x, y, vx, vy, speed, radius: 14, life: 6000 };
+        }
+        return b;
+    }
+
+    function spawnBomb() {
+        let multiSpawn = (level > 6) ? Math.floor(Math.random() * 3) + 1 : 1;
+        
+        for(let i = 0; i < multiSpawn; i++) {
+            const baseSpeed = 0.28 + (level * 0.025); 
+            const randomVar = (Math.random() * 0.12) - 0.06;
+            const finalSpeed = baseSpeed + randomVar;
+            const timeToReachOrbit = ORBIT_RADIUS / finalSpeed;
+
+            let antiCheatOffset = (level >= 6) ? (Math.random() - 0.5) * 0.45 : (Math.random() - 0.5) * 0.1;
+            const predictedAngle = player.angle + (player.speed * player.dir * (timeToReachOrbit / 16)) + antiCheatOffset;
+
+            bombs.push(getBomb(
+                CX, CY, 
+                Math.cos(predictedAngle) * finalSpeed, 
+                Math.sin(predictedAngle) * finalSpeed,
+                finalSpeed
+            ));
+        }
+    }
+
+    function update(dt) {
+        if (state !== 'PLAYING') return;
+
+        player.angle += player.speed * player.dir;
+        let px = CX + Math.cos(player.angle) * ORBIT_RADIUS;
+        let py = CY + Math.sin(player.angle) * ORBIT_RADIUS;
+
+        for (let i = bombs.length - 1; i >= 0; i--) {
+            let b = bombs[i];
+            b.x += b.vx * dt;
+            b.y += b.vy * dt;
+            b.life -= dt;
+            
+            if (b.life <= 0) {
+                bombPool.push(bombs.splice(i, 1)[0]);
+                continue;
+            }
+
+            let dx = b.x - px;
+            let dy = b.y - py;
+            let distSq = dx * dx + dy * dy;
+            let radiiSum = b.radius + player.radius;
+            
+            if (distSq < radiiSum * radiiSum) {
+                triggerGameOver();
+                return;
+            }
+        }
+
+        let activeCoins = 0;
+        coins.forEach(c => {
+            if (c.active) {
+                activeCoins++;
+                let cx = CX + Math.cos(c.angle) * ORBIT_RADIUS;
+                let cy = CY + Math.sin(c.angle) * ORBIT_RADIUS;
+                let dx = cx - px;
+                let dy = cy - py;
+                let distSq = dx * dx + dy * dy;
+                let coinCaptureRad = 25 + player.radius;
+                if (distSq < coinCaptureRad * coinCaptureRad) {
+                    c.active = false;
+                    score++;
+                    scoreVal.innerText = score;
+                    soundCoin.currentTime = 0;
+                    soundCoin.play().catch(()=>{});
+                }
+            }
+        });
+
+        if (activeCoins === 0) {
+            level++;
+            state = 'PAUSED';
+            btnIcon.src = rawImages.btnplay.src;
+            initLevel();
+        }
+
+        bombTimer -= dt;
+        if (bombTimer <= 0) {
+            spawnBomb();
+            bombTimer = bombInterval;
+        }
+    }
+
+    function draw() {
+        ctx.drawImage(bgCanvas, 0, 0);
+        coins.forEach(c => {
+            if (c.active) {
+                let cx = CX + Math.cos(c.angle) * ORBIT_RADIUS;
+                let cy = CY + Math.sin(c.angle) * ORBIT_RADIUS;
+                ctx.drawImage(rasterized.coin, cx - COIN_SIZE/2, cy - COIN_SIZE/2);
+            }
+        });
+        bombs.forEach(b => {
+            ctx.save();
+            ctx.translate(b.x, b.y);
+            ctx.rotate(Math.atan2(b.vy, b.vx) + Math.PI / 2);
+            ctx.drawImage(rasterized.bullet, -BULLET_SIZE/2, -BULLET_SIZE/2);
+            ctx.restore();
+        });
+        let px = CX + Math.cos(player.angle) * ORBIT_RADIUS;
+        let py = CY + Math.sin(player.angle) * ORBIT_RADIUS;
+        ctx.save();
+        ctx.translate(px, py);
+        let shipAngle = player.angle + (player.dir === 1 ? Math.PI / 2 : -Math.PI / 2);
+        ctx.rotate(shipAngle);
+        ctx.drawImage(rasterized.ship, -SHIP_SIZE/2, -SHIP_SIZE/2);
+        ctx.restore();
+    }
+
+    function loop(timestamp) {
+        let dt = timestamp - lastTime;
+        lastTime = timestamp;
+        if (dt > 100) dt = 16; 
+        if (state === 'PLAYING') update(dt);
+        draw();
+        requestAnimationFrame(loop);
+    }
+
+    function updateUI() {
+        levelDisplay.innerText = level > 6 ? `MODO SATANÁS` : `Nivel ${level}`;
+        levelDisplay.style.color = level > 6 ? '#d32f2f' : '#263238';
+        scoreVal.innerText = score;
+    }
+
+    function triggerGameOver() {
+        state = 'GAMEOVER';
+        btnIcon.src = rawImages.btnrestart.src;
+        gameOverTimeout = setTimeout(() => {
+            if (state === 'GAMEOVER') leaderboard.style.display = 'flex';
+        }, 800);
+    }
+
+    btn.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        if (state === 'MENU' || state === 'GAMEOVER') {
+            if (gameOverTimeout) clearTimeout(gameOverTimeout);
+            leaderboard.style.display = 'none';
+            level = 1;
+            score = 0;
+            initLevel();
+            state = 'PLAYING';
+            btnIcon.src = rawImages.btnswitch.src;
+        } else if (state === 'PAUSED') {
+            state = 'PLAYING';
+            btnIcon.src = rawImages.btnswitch.src;
+        } else if (state === 'PLAYING') {
+            player.dir *= -1;
+        }
+    });
+
+    function startGameLoop() {
+        loadingScreen.style.display = 'none';
+        canvas.style.display = 'block';
+        uiLayer.style.display = 'flex';
+        renderLeaderboard();
+        leaderboard.style.display = 'flex'; 
+        initLevel();
+        btnIcon.src = rawImages.btnplay.src;
+        requestAnimationFrame((ts) => { lastTime = ts; loop(ts); });
+    }
+
+    preload();
+</script>
+</body>
+</html>
+
+
