@@ -229,8 +229,19 @@
         btnrestart: 'https://muchinchis.github.io/Corsairs-PouLovers/btnrestart.svg'
     };
 
-    const soundCoin = new Audio('https://muchinchis.github.io/Corsairs-PouLovers/Dropcoin.mp3'); 
-    soundCoin.volume = 0.4;
+    // OPTIMIZACIÓN DE AUDIO: Pool de audios para permitir que suenen múltiples monedas rápidamente
+    const coinSounds = [];
+    const poolSize = 10; // Cantidad de sonidos simultáneos que pueden sonar
+    for (let i = 0; i < poolSize; i++) {
+        let snd = new Audio('https://muchinchis.github.io/Corsairs-PouLovers/Dropcoin.mp3');
+        snd.volume = 0.4;
+        coinSounds.push(snd);
+    }
+    let currentCoinSoundIndex = 0;
+
+    // Sonido de muerte (Asegúrate de tener este archivo subido en tu repositorio si no suena, he puesto un nombre genérico)
+    const soundDeath = new Audio('https://muchinchis.github.io/Corsairs-PouLovers/dead.mp3'); 
+    soundDeath.volume = 0.5;
 
     const rawImages = {};
     const rasterized = {}; 
@@ -413,12 +424,17 @@
                 let dy = cy - py;
                 let distSq = dx * dx + dy * dy;
                 let coinCaptureRad = 25 + player.radius;
+                
                 if (distSq < coinCaptureRad * coinCaptureRad) {
                     c.active = false;
                     score++;
                     scoreVal.innerText = score;
-                    soundCoin.currentTime = 0;
-                    soundCoin.play().catch(()=>{});
+                    
+                    // Usar el pool de audios y adelantar 90 milisegundos (0.09s)
+                    let snd = coinSounds[currentCoinSoundIndex];
+                    snd.currentTime = 0.09;
+                    snd.play().catch(()=>{});
+                    currentCoinSoundIndex = (currentCoinSoundIndex + 1) % poolSize;
                 }
             }
         });
@@ -473,7 +489,8 @@
     }
 
     function updateUI() {
-        levelDisplay.innerText = level > 6 ? `MODO SATANÁS` : `Nivel ${level}`;
+        // Ahora siempre dice "Nivel X" pero cambia a rojo a partir del nivel 7
+        levelDisplay.innerText = `Nivel ${level}`;
         levelDisplay.style.color = level > 6 ? '#d32f2f' : '#263238';
         scoreVal.innerText = score;
     }
@@ -481,6 +498,11 @@
     function triggerGameOver() {
         state = 'GAMEOVER';
         btnIcon.src = rawImages.btnrestart.src;
+        
+        // Reproducir sonido de muerte
+        soundDeath.currentTime = 0;
+        soundDeath.play().catch(()=>{});
+
         gameOverTimeout = setTimeout(() => {
             if (state === 'GAMEOVER') leaderboard.style.display = 'flex';
         }, 800);
@@ -519,5 +541,4 @@
 </script>
 </body>
 </html>
-
 
